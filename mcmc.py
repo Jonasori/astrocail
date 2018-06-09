@@ -1,3 +1,5 @@
+"""Set up and make an MCMC run."""
+
 from emcee.utils import MPIPool
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
@@ -7,13 +9,15 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import emcee
-from astrocail import plotting
+import plotting
 import time
 
 sns.set_style('ticks')
 
 
 class MCMCrun:
+    """Why do we have this as a class."""
+
     def __init__(self, name, nwalkers, path=None, burn_in=0):
 
         # read in chain from .csv
@@ -25,9 +29,11 @@ class MCMCrun:
         self.nwalkers = nwalkers
         self.nsteps = self.main.shape[0] // nwalkers
 
-        # groom the chain
+        # Remove burn in
         self.burnt_in = self.main.iloc[burn_in*nwalkers:, :]
-        self.groomed = self.burnt_in.loc[self.burnt_in.loc[:, 'lnprob'] != -np.inf, :]
+        # Get rid of steps that resulted in bad lnprobs
+        lnprob_vals = self.burnt_in.loc[:, 'lnprob']
+        self.groomed = self.burnt_in.loc[lnprob_vals != -np.inf, :]
         print 'Removed burn-in phase (step 0 through {} ).'.format(burn_in)
 
     def evolution(self):
@@ -37,8 +43,8 @@ class MCMCrun:
 
         stepmin, stepmax = 0, self.nsteps
 
-        main = self.main.copy().iloc[stepmin *
-                                     self.nwalkers:stepmax * self.nwalkers, :]
+        main = self.main.copy().iloc[stepmin * self.nwalkers:
+                                     stepmax * self.nwalkers, :]
 
         axes = main.iloc[0::self.nwalkers].plot(
             x=np.arange(stepmin, stepmax),
@@ -184,7 +190,13 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
         nsteps (int):
         nwalkers (int):
         lnprob (something):
-        to_vary (list of lists?): probably [ [params1], [params2], [params3]]
+        to_vary (list of lists): list of [param name,
+                                          initial_position_center,
+                                          initial_position_sigma,
+                                          (prior low bound, prior high bound)]
+                                for each parameter.
+                                The second two values set the position & size
+                                for a random Gaussian ball of initial positions
     """
     # Something to do with parallelizing
     pool = MPIPool()
@@ -209,7 +221,9 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
         start_step = chain.index[-1] // nwalkers
         print 'Resuming {} at step {}'.format(run_name, start_step)
         pos = np.array(chain.iloc[-nwalkers:, :-1])
-        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
+
+        # If we're adding new steps, just put in a new line and get started.
+        with open(chain_filename, 'a') as f:
             f.write('\n')
         end = np.array(chain.iloc[-nwalkers:, :])
         print 'Start step: {}'.format(np.mean(end[:, -1]))
@@ -237,8 +251,8 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
         for i in range(nwalkers):
             for param in to_vary:
                 pos.append(param[1] + param[2]*np.random.randn())
-        """
-
+                """
+        # randn makes an n-dimensional array of rands in [0,1]
         pos = [[param[1] + param[2]*np.random.randn() for param in to_vary]
                for i in range(nwalkers)]
 
@@ -274,14 +288,14 @@ def run_emcee_simple(run_name, nsteps, nwalkers, lnprob, to_vary, burn_in=0, poo
         run_name (str):
         nsteps (int):
         nwalkers (int):
-        lnprob (function?):
+        lnprob (function?): I think lnprob here is a function?
+                            Maybe equivalent in docs to lnpostfn
         to_vary (list of lists):
         burn_in (int?): how many steps to remove from the front
         pool (bool): Want to parallelize?
         resume (bool): Are you resuming a previous run?
-
     """
-
+    # Set up parallelization
     if pool:
         pool = MPIPool()
         if not pool.is_master():
@@ -318,8 +332,22 @@ def run_emcee_simple(run_name, nsteps, nwalkers, lnprob, to_vary, burn_in=0, poo
         pos = [[param[1] + param[2]*np.random.randn() for param in to_vary]
                for i in range(nwalkers)]
 
-    for i, result in enumerate(sampler.sample(pos, iterations=nsteps, storechain=False)):
-        print("Step {}".format(start_step + i))
+    # Run the sampler and then query it
+    run = sampler.sample(pos, iterations=nsteps, storechain=False)
+    """Note that sampler.sample returns:
+            pos: list of the walkers' current positions in an object of shape
+                    [nwalkers, ndim]
+            lnprob: The list of log posterior probabilities for the walkers at
+                    positions given by pos.
+                    The shape of this object is (nwalkers, dim)
+            rstate: The current state of the random number generator.
+            blobs (optional): The metadata "blobs" associated with the current
+                              position. The value is only returned if
+                              lnpostfn returns blobs too.
+            """
+    for i, result in enumerate(run):
+        print "Step {}".format(start_step + i)
+        # Where did chisum come from? What is it returning?
         pos, chisum, blob = result
         with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
             for i in range(nwalkers):

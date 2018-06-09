@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import subprocess as sp
 from astropy.io import fits
 import os
-from galario.double import chi2Image
 from scipy.optimize import curve_fit
 
 class Observation:
@@ -226,15 +225,19 @@ class Model:
                      (data_imag - model_imag)**2 * weights)
 
         self.chis.append(chi)
-        
+
+    """
     def get_chi_galario(self, obs, plot_resid=False):
+        # GPU-accelerated radio data analysis package:
+        # https://github.com/mtazzari/galario
+        from galario.double import chi2Image
 
         # - Read in observation visibilities
         freq0 = obs.uvf[0].header['crval4']
         uu = np.ascontiguousarray(obs.uvf[0].data['UU']*freq0, np.float64)
         vv = np.ascontiguousarray(obs.uvf[0].data['VV']*freq0, np.float64)
         vis_rlimwt = np.ascontiguousarray(obs.uvf[0].data['data'].squeeze(), np.float64)
-        
+
         # real and imaginary arrays in Stokes I
         if vis_rlimwt.shape[1] == 2: # polarized; turn to stokes
             vis_real = (vis_rlimwt[:,0,0]+vis_rlimwt[:,1,0])/2.
@@ -250,16 +253,16 @@ class Model:
         model_image = np.ascontiguousarray(model_fits[0].data.squeeze(), np.float64)
         dxy = np.radians(np.abs(model_fits[0].header['cdelt1']))
         model_fits.close()
-        
+
         chi = chi2Image(model_image, dxy, uu, vv, vis_real, vis_imag, vis_weights)
         self.chis.append(chi)
-
+    """
     def view_fits(self):
         model_image = fits.getdata(self.path + '.fits')[0]
         plt.imshow(model_image, origin='lower')
         plt.show(block=False)
-    
-        
+
+
         '''Calculate the raw chi-squared based on the difference between the model and data visibilities.
         :param datfile: (default = 'data/HD163296.CO32.regridded.cen15')
          The base name for the data file. The code reads in the visibilities from datfile+'.vis.fits'

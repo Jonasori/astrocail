@@ -3,9 +3,10 @@ from astropy.modeling import models, fitting
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.patches import Ellipse
 from matplotlib.ticker import MultipleLocator, LinearLocator, AutoMinorLocator
-from astrocail import colormaps
+import colormaps
 import matplotlib.patheffects as PathEffects
-import sklearn.neighbors, sklearn.model_selection
+import sklearn.neighbors
+#import sklearn.model_selection
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -13,13 +14,13 @@ import numpy as np
 
 
 class Figure:
-    
+
     # Set seaborn plot styles and color pallete
     sns.set_style("ticks",
                   {"xtick.direction": "in",
                    "ytick.direction": "in"})
     sns.set_context("talk")
-    
+
     def __init__(self, paths, rmses, texts, layout=(1,1),  savefile='figure.pdf', title=None, show=False):
         rmses = np.array([rmses]) if type(rmses) is float else np.array(rmses)
         texts = np.array([texts], dtype=object) if type(texts) is str \
@@ -27,26 +28,26 @@ class Figure:
         paths = np.array([paths]) if type(paths) is str   else np.array(paths)
         self.title = title
         self.rows, self.columns = layout
-        
+
         # clear any pre existing figures, then create figure
         plt.close()
-        self.fig, self.axes = plt.subplots(self.rows, self.columns,     
+        self.fig, self.axes = plt.subplots(self.rows, self.columns,
             figsize=(11.6/2 * self.columns, 6.5*self.rows),
             sharex=False, sharey=False, squeeze=False)
         plt.subplots_adjust(wspace=-0.0)
-        
+
         if type(texts.flatten()[0]) is not float: texts = texts.flatten()
         for ax, path, rms, text  in zip(self.axes.flatten(), paths.flatten(), rmses.flatten(), texts):
             self.rms = rms
             self.get_fits(path)
             self.make_axis(ax)
             self.fill_axis(ax, text)
-            
+
         if savefile:
             plt.savefig(savefile, dpi=700)
         if show:
             plt.show()
-            
+
 
     def get_fits(self, path):
         fits_file = fits.open(path)
@@ -63,7 +64,7 @@ class Figure:
         xpix = self.head['CRPIX1'];         ypix = self.head['CRPIX2']
         xval = self.head['CRVAL1'];         yval = self.head['CRVAL2']
         self.xdelt = self.head['CDELT1'];   self.ydelt = self.head['CDELT2']
-        
+
         # Convert from degrees to arcsecs
         self.ra_offset = np.array(((np.arange(nx) - xpix + 1) * self.xdelt) * 3600)
         self.dec_offset = np.array(((np.arange(ny) - ypix + 1) * self.ydelt) * 3600)
@@ -75,7 +76,7 @@ class Figure:
                       {"xtick.direction": "in",
                        "ytick.direction": "in"})
         sns.set_context("talk")
-        
+
         xmin = -5.0
         xmax = 5.0
         ymin = -5.0
@@ -127,7 +128,7 @@ class Figure:
             vmax=np.max(self.im),
             cmap=colormaps.jesse_reds)
 
-        
+
         if self.rms:
             # Set contour levels
             cont_levs = np.arange(3, 100, 3) * self.rms
@@ -154,18 +155,18 @@ class Figure:
                                colors='k',
                                linewidths=0.75,
                                linestyles='dashed')
-        
+
         # Create the colorbar
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("top", size="8%", pad=0.0)
         cbar = self.fig.colorbar(cmap, ax=ax, cax=cax, orientation='horizontal')
         cbar.ax.xaxis.set_tick_params(direction='out', length=3, which='major',
-            bottom='off', top='on', labelsize=8, pad=-2, 
+            bottom='off', top='on', labelsize=8, pad=-2,
             labeltop='on', labelbottom='off')
 
         cbar.ax.xaxis.set_tick_params(direction='out', length=2, which='minor',
             bottom='off', top='on')
-        
+
         if np.max(self.im) > 500:
             tickmaj = 200; tickmin = 50
         elif np.max(self.im) > 200:
@@ -174,7 +175,7 @@ class Figure:
             tickmaj = 50; tickmin = 10
         elif np.max(self.im) <= 100:
             tickmaj = 20; tickmin = 5
-            
+
         minorLocator = AutoMinorLocator(tickmaj / tickmin)
         cbar.ax.xaxis.set_minor_locator(minorLocator)
         cbar.ax.set_xticklabels(cbar.ax.get_xticklabels(),
@@ -184,7 +185,7 @@ class Figure:
         # Colorbar label
         cbar.ax.text(0.425, 0.320, r'$\mu Jy / beam$', fontsize=12,
                      path_effects=[PathEffects.withStroke(linewidth=2, foreground="w")])
-        
+
         # Overplot the beam ellipse
         try:
             beam_ellipse_color = 'k'
@@ -195,7 +196,7 @@ class Figure:
             el = Ellipse(xy=[4.2, -4.2], width=bmin, height=bmaj, angle=-bpa,
                 edgecolor='k', hatch='///', facecolor='none', zorder=10)
             ax.add_artist(el)
-        except KeyError: 
+        except KeyError:
             pass
 
         # Plot the scale bar
@@ -219,14 +220,14 @@ class Figure:
             for t in text:
                 ax.text(*t, fontsize=18,
                     path_effects=[PathEffects.withStroke(linewidth=3, foreground="w")])
-                    
+
         if self.title:
             plt.suptitle(self.title)
-                    
+
     def quickview(self):
             plt.imshow(self.im, origin='lower')
             plt.show(block=False)
-            
+
 def my_kde(samples, ax=None, show=False, **kwargs):
     # if ax is None: fig, ax = plt.subplots()
 
@@ -237,45 +238,46 @@ def my_kde(samples, ax=None, show=False, **kwargs):
     kde = sklearn.neighbors.KernelDensity(bandwidth=2*scotts)
     kde.fit(samples.values.reshape(-1,1))
     pdf = np.exp(kde.score_samples(x_grid.reshape(-1,1)))
-    
+
     ax.plot(x_grid, pdf)
-    
+
     if show:
         plt.show()
-    
+
+    # if using this line, make sure to import sklearn.model_selection
     # bw_search = sklearn.model_selection.GridSearchCV(
-    #     sklearn.neighbors.kde.KernelDensity(), 
+    #     sklearn.neighbors.kde.KernelDensity(),
     #     {'bandwidth': scotts * np.array([0.1, 0.5, 1, 2, 4, 5, 10])})
-            
-            
-            
+
+
+
 # attempt at making kde plot
 #=========================================================================
 # run_name = 'run5_26walkers_10params'
 # posterior = pd.read_csv(run_name + '.csv')
-# 
-# 
+#
+#
 # multi = posterior[['m_disk', 'sb_law']]
-# 
+#
 # sns.kdeplot(multi)
 # plt.show()
-# 
+#
 # bw_search = GridSearchCV(KernelDensity(), {'bandwidth': np.linspace(0, multi.std().mean()/10, 5)}, cv=20)
 # bw_search.fit(multi)
 # multi.shape[0]**(-1./(multi.shape[1]+4))
 # multi.std()
 # **()
-# 
-# xx, yy = np.meshgrid(np.linspace(*multi.iloc[:,0].quantile([0,1]), num=100), 
+#
+# xx, yy = np.meshgrid(np.linspace(*multi.iloc[:,0].quantile([0,1]), num=100),
 #                      np.linspace(*multi.iloc[:,1].quantile([0,1]), num=100))
 # test = np.array([xx.ravel(), yy.ravel()]).T
 # kde=KernelDensity(bandwidth=multi.std().min()/10)
 # kde.fit(multi)
 # pdf = np.exp(kde.score_samples(multi)).reshape(len(xx), -1)
-# 
+#
 # plt.contour(xx, yy, pdf )
 # plt.savefig('test.png')
 # plt.show()
-# 
-# 
-# 
+#
+#
+#
