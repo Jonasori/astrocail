@@ -86,7 +86,7 @@ class Model:
         self.path = root + name
         self.chis = []
 
-        self.delete() # delete any preexisting files that will conflict
+        self.delete()  # delete any preexisting files that will conflict
 
     def delete(self):
         sp.call('rm -rf {}*'.format(self.path), shell=True)

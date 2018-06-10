@@ -16,7 +16,7 @@ sns.set_style('ticks')
 
 
 class MCMCrun:
-    """Why do we have this as a class."""
+    """Basically just an object that can be plotted I think."""
 
     def __init__(self, name, nwalkers, path=None, burn_in=0):
 
