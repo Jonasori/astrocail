@@ -1,5 +1,5 @@
 # astrocail
-oft-used python functions and classes for astronomy.
+Jonas goes and chops up, comments, and tries to make sense of Cail's code.
 
 `casa.py`: wrapper functions that allow CASA tasks to be executed from within a Python script.
 
